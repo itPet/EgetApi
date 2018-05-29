@@ -8,7 +8,7 @@
 import Foundation
 import PerfectHTTP
 
-class StudentRegister {
+class StudentRegister: Codable {
     
     var listOfStudents = [Student]()
     
@@ -16,6 +16,20 @@ class StudentRegister {
         listOfStudents = [Student(firstName: "Peter", lastName: "Karlsson", studentId: "001"),
             Student(firstName: "Nils", lastName: "Svensson", studentId: "002"),
             Student(firstName: "Arne", lastName: "Wing", studentId: "003")]
+    }
+    
+    static func fromJSONString(string: String) -> StudentRegister {
+        let jsonObject = string.data(using: .utf8)!
+        
+        let decoder = JSONDecoder()
+        do {
+            let studentRegister = try decoder.decode(StudentRegister.self, from: jsonObject)
+            return studentRegister
+        } catch {
+            print("error trying to convert data to JSON")
+            print(error)
+            return StudentRegister()
+        }
     }
     
     func getStudentById(request: HTTPRequest) -> String {
@@ -31,21 +45,28 @@ class StudentRegister {
         }
     }
     
-    func addFromHTTPRequest (request: HTTPRequest) {
+    func addFromHTTPRequest (request: HTTPRequest, course: Course) {
         let dictionary = convertToDictionary(text: request.postBodyString!)
+        let studentId = UUID().uuidString
         
         let newStudent = Student(firstName: dictionary?["firstName"] as? String ?? "",
                                  lastName: dictionary?["lastName"] as? String ?? "",
-                                 studentId: UUID().uuidString)
+                                 studentId: studentId)
         
         listOfStudents.append(newStudent)
+        for lesson in course.listOfLessons {
+            lesson.attendance[studentId] = false
+        }
     }
     
-    func delete(request: HTTPRequest) -> String {
+    func delete(request: HTTPRequest, course: Course) -> String {
         if let studentId = request.urlVariables["studentId"] {
             for i in 0...listOfStudents.count-1 {
                 if listOfStudents[i].studentId == studentId {
                     listOfStudents.remove(at: i)
+                    for lesson in course.listOfLessons {
+                        lesson.attendance.removeValue(forKey: studentId)
+                    }
                     return toJSONString()
                 }
             }
@@ -70,7 +91,7 @@ class StudentRegister {
                             JSONString.append("}}")
                         }
                     }
-                    return JSONString
+                        return JSONString
                 }
             }
                 return "No student with studentId: \(studentId)"
@@ -80,7 +101,7 @@ class StudentRegister {
     }
     
     func toJSONString() -> String {
-        var JSONString = ""
+        var JSONString = "{ \"listOfStudents\": "
         for i in 0...listOfStudents.count-1 {
             if i == 0 {
                 JSONString.append("[")
@@ -89,7 +110,7 @@ class StudentRegister {
             if i != listOfStudents.count-1 {
                 JSONString.append(",")
             } else {
-                JSONString.append("]")
+                JSONString.append("]}")
             }
         }
         return JSONString

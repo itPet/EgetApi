@@ -8,7 +8,7 @@
 import Foundation
 
 
-class Student {
+class Student: Codable {
     var firstName : String
     var lastName : String
     var studentId : String

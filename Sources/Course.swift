@@ -8,44 +8,31 @@
 import Foundation
 import PerfectHTTP
 
-class Course {
-    var name : String
+class Course: Codable {
+    var courseName : String
     var listOfLessons = [Lesson]()
     
     init(listOfStudents: [Student]) {
-        name = "MA17"
+        courseName = "MA17"
         
         for i in 1...5 {
             listOfLessons.append(Lesson(lessonNr: i, listOfStudents: listOfStudents))
         }
     }
     
-//    func writeToFile() {
-//        let fileName = "Test"
-//        let dir = try? FileManager.default.url(for: .documentDirectory,
-//                                               in: .userDomainMask, appropriateFor: nil, create: true)
-//        
-//        // If the directory was found, we write a file to it and read it back
-//        if let fileURL = dir?.appendingPathComponent(fileName).appendingPathExtension("txt") {
-//            
-//            // Write to the file named Test
-//            let outString = "Write this text to the file"
-//            do {
-//                try outString.write(to: fileURL, atomically: true, encoding: .utf8)
-//            } catch {
-//                print("Failed writing to URL: \(fileURL), Error: " + error.localizedDescription)
-//            }
-//            
-//            // Then reading it back from the file
-//            var inString = ""
-//            do {
-//                inString = try String(contentsOf: fileURL)
-//            } catch {
-//                print("Failed reading from URL: \(fileURL), Error: " + error.localizedDescription)
-//            }
-//            print("Read from the file: \(inString)")
-//        }
-//    }
+    static func fromJSONString(string: String, listOfStudents: [Student]) -> Course {
+        let jsonObject = string.data(using: .utf8)!
+        
+        let decoder = JSONDecoder()
+        do {
+            let course = try decoder.decode(Course.self, from: jsonObject)
+            return course
+        } catch {
+            print("error trying to convert data to JSON")
+            print(error)
+            return Course(listOfStudents: listOfStudents)
+        }
+    }
     
     func putLessonFromHTTPRequest(request: HTTPRequest) -> String {
         let wrongInput = "Wrong JSON! Should be studentId: String, attendance: Bool"
@@ -98,7 +85,7 @@ class Course {
                 lessons.append(",")
             }
         }
-        let JSONString = "{\"courseName\": \"\(name)\", \"Lessons\": [\(lessons)]}"
+        let JSONString = "{\"courseName\": \"\(courseName)\", \"listOfLessons\": [\(lessons)]}"
         return JSONString
     }
     

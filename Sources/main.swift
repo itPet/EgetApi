@@ -20,6 +20,7 @@
 import PerfectLib
 import PerfectHTTP
 import PerfectHTTPServer
+import Foundation
 
 // Create HTTP server.
 let server = HTTPServer()
@@ -27,8 +28,45 @@ let server = HTTPServer()
 // Create the container variable for routes to be added to.
 var routes = Routes()
 
-var studentRegister = StudentRegister()
-var course = Course(listOfStudents: studentRegister.listOfStudents)
+func writeToFile(fileName: String, outString: String) {
+    let dir = try? FileManager.default.url(for: .documentDirectory,
+                                           in: .userDomainMask, appropriateFor: nil, create: true)
+
+    // If the directory was found, we write a file to it and read it back
+    if let fileURL = dir?.appendingPathComponent(fileName).appendingPathExtension("txt") {
+
+        // Write to the file named Test
+        do {
+            try outString.write(to: fileURL, atomically: true, encoding: .utf8)
+            print("wrote to \(fileName)")
+        } catch {
+            print("Failed writing to URL: \(fileURL), Error: " + error.localizedDescription)
+        }
+    } else {
+        print("directory not found!")
+    }
+}
+
+func readFromFile(fileName: String) -> String {
+    let dir = try? FileManager.default.url(for: .documentDirectory,
+                                           in: .userDomainMask, appropriateFor: nil, create: true)
+    
+    // If the directory was found, we write a file to it and read it back
+    if let fileURL = dir?.appendingPathComponent(fileName).appendingPathExtension("txt") {
+        // Then reading it back from the file
+        var inString = ""
+        do {
+            inString = try String(contentsOf: fileURL)
+            return inString
+        } catch {
+            return "Failed reading from URL: \(fileURL), Error: " + error.localizedDescription
+        }
+    }
+    return "directory not found"
+}
+
+var studentRegister = StudentRegister.fromJSONString(string: readFromFile(fileName: "StudentRegister"))
+var course = Course.fromJSONString(string: readFromFile(fileName: "Course"), listOfStudents: studentRegister.listOfStudents)
 
 // Get - course/MA17
 routes.add(method: .get, uri: "/course/MA17", handler: {
@@ -38,24 +76,28 @@ routes.add(method: .get, uri: "/course/MA17", handler: {
     response.completed()
 })
 
-// Get, Put - lesson/{lessonNr}
-routes.add(method: .get, uri: "/course/MA17/lesson/{lessonNr}", handler: {
+// Get, Put - lessons/{lessonNr}
+routes.add(method: .get, uri: "/course/MA17/lessons/{lessonNr}", handler: {
     request, response in
     response.setHeader(.contentType, value: "application/json")
     response.appendBody(string: course.getLesson(request: request))
     response.completed()
+    writeToFile(fileName: "Course", outString: course.toJSONString())
 })
 
-routes.add(method: .put, uri: "/course/MA17/lesson/{lessonNr}", handler: {
+routes.add(method: .put, uri: "/course/MA17/lessons/{lessonNr}", handler: {
     request, response in
     response.setHeader(.contentType, value: "application/json")
     response.appendBody(string: course.putLessonFromHTTPRequest(request: request))
+    
+    writeToFile(fileName: "Course", outString: course.toJSONString())
+    
     response.completed()
 })
 
 // Get, Post    - students
 // Get, Delete  - students/{studentId}
-// Get          - students/attendance/{studentId}
+// Get          - students/{studentId}/attendance
 routes.add(method: .get, uri: "/students", handler: {
     request, response in
     response.setHeader(.contentType, value: "application/json")
@@ -66,8 +108,12 @@ routes.add(method: .get, uri: "/students", handler: {
 routes.add(method: .post, uri: "/students", handler: {
     request, response in
     response.setHeader(.contentType, value: "application/json")
-    studentRegister.addFromHTTPRequest(request: request)
+    studentRegister.addFromHTTPRequest(request: request, course: course)
     response.appendBody(string: studentRegister.toJSONString())
+    
+    writeToFile(fileName: "Course", outString: course.toJSONString())
+    writeToFile(fileName: "StudentRegister", outString: studentRegister.toJSONString())
+    
     response.completed()
 })
 
@@ -81,11 +127,15 @@ routes.add(method: .get, uri: "/students/{studentId}", handler: {
 routes.add(method: .delete, uri: "/students/{studentId}", handler: {
     request, response in
     response.setHeader(.contentType, value: "application/json")
-    response.appendBody(string: studentRegister.delete(request: request))
+    response.appendBody(string: studentRegister.delete(request: request, course: course))
+    
+    writeToFile(fileName: "Course", outString: course.toJSONString())
+    writeToFile(fileName: "StudentRegister", outString: studentRegister.toJSONString())
+    
     response.completed()
 })
 
-routes.add(method: .get, uri: "/students/attendance/{studentId}", handler: {
+routes.add(method: .get, uri: "/students/{studentId}/attendance", handler: {
     request, response in
     response.setHeader(.contentType, value: "application/json")
     response.appendBody(string: studentRegister.studentAttendanceById(request: request, listOfLessons: course.listOfLessons))
@@ -93,20 +143,6 @@ routes.add(method: .get, uri: "/students/attendance/{studentId}", handler: {
 })
 
 
-
-
-
-// This is an example "Hello, world!" HTML route
-routes.add(method: .get, uri: "/", handler: {
-	request, response in
-	// Setting the response content type explicitly to text/html
-	response.setHeader(.contentType, value: "text/html")
-	// Adding some HTML to the response body object
-	response.appendBody(string: "<html><title>Hello, world!</title><body>Hello, world!</body></html>")
-	// Signalling that the request is completed
-	response.completed()
-	}
-)
 
 // Add the routes to the server.
 server.addRoutes(routes)

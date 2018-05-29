@@ -7,7 +7,7 @@
 
 import Foundation
 
-class Lesson {
+class Lesson: Codable {
     var lessonNr : Int
     var attendance = [String: Bool]()
     
@@ -19,9 +19,20 @@ class Lesson {
         }
     }
     
+    func fromJSONString(JSONString: String) {
+        if let dict = convertToDictionary(text: JSONString) {
+            if let lessonNr = dict["lessonNr"]{
+                print(lessonNr)
+            } else {
+                print("lessonNr not found")
+            }
+        } else {
+            print("dictionary not created")
+        }
+    }
     
     func toJSONString() -> String {
-        var JSONString = "{\"LessonNr\": \(lessonNr), \"attendance\" : {"
+        var JSONString = "{\"lessonNr\": \(lessonNr), \"attendance\" : {"
         var c = 0
         for element in attendance {
             JSONString.append("\"\(element.key)\": \(element.value)")
@@ -35,5 +46,14 @@ class Lesson {
         return JSONString
     }
     
-    
+    private func convertToDictionary(text: String) -> [String: Any]? {
+        if let data = text.data(using: .utf8) {
+            do {
+                return try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
+            } catch {
+                print(error.localizedDescription)
+            }
+        }
+        return nil
+    }
 }
